@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f0fdf4;padding:8px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.logo{font-family:Georgia,serif;font-size:18px;color:#14532d}
+.badge{background:#16a34a;color:#fff;border-radius:99px;padding:2px 12px;font-size:12px}
+.dots{display:flex;gap:6px;margin-bottom:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:#e5e7eb;transition:background .3s}
+.dot.cur{background:#16a34a}.dot.ok{background:#16a34a}.dot.bad{background:#dc2626}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px #16a34a18;padding:14px;margin-bottom:10px}
+.toolbar{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center}
+.tbtn{background:transparent;border:1.5px solid #bbf7d0;border-radius:8px;padding:5px 12px;font-size:12px;color:#15803d;cursor:pointer;white-space:nowrap}
+.tbtn.act{background:#16a34a;color:#fff;border-color:#16a34a}
+.tbtn.warn{border-color:#fde68a;color:#92400e}
+.tbtn.warn.act{background:#f59e0b;color:#fff;border-color:#f59e0b}
+.hint-box{background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:12px;color:#713f12;margin-bottom:8px;line-height:1.5}
+.fill-box{background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:8px 12px;font-size:12px;color:#065f46;margin-bottom:8px;line-height:1.5}
+.qtype{font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px}
+.scenario{font-size:14px;color:#1f2937;line-height:1.65;margin-bottom:12px;padding:10px 12px;background:#f0fdf4;border-left:3px solid #4ade80;border-radius:0 8px 8px 0}
+.scenario strong{color:#14532d}
+.find{font-size:15px;font-weight:700;color:#14532d;margin-bottom:12px}
+.find em{color:#16a34a;font-style:normal}
+.ans-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.ans-label{font-size:15px;font-weight:700;color:#14532d;white-space:nowrap}
+input.ans-inp{border:2px solid #bbf7d0;border-radius:8px;padding:7px 10px;font-size:15px;font-family:monospace;color:#1e1b4b;outline:none;width:120px;background:#f0fdf4}
+input.ans-inp:focus{border-color:#16a34a}
+input.ans-inp.ok{border-color:#16a34a;background:#dcfce7}
+input.ans-inp.bad{border-color:#dc2626;background:#fee2e2}
+input.ans-inp:disabled{opacity:0.75}
+.fb{border-radius:8px;padding:8px 12px;font-size:13px;margin:6px 0;line-height:1.5}
+.fb.ok{background:#dcfce7;color:#166534}
+.fb.bad{background:#fee2e2;color:#991b1b}
+button{background:transparent;border:1.5px solid #bbf7d0;border-radius:8px;padding:6px 16px;font-size:13px;color:#15803d;cursor:pointer}
+button:disabled{opacity:0.4;cursor:default}
+button.pri{background:#16a34a;color:#fff;border-color:#16a34a}
+button.sm{padding:5px 12px;font-size:12px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.diag-section{margin-top:10px}
+.diag-row{display:flex;gap:10px;flex-wrap:wrap}
+.diag-col{flex:1 1 280px;min-width:0}
+.diag-label{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+.actions{display:flex;justify-content:flex-end;margin-top:10px}
+.done{text-align:center;padding:2rem 1rem}
+.done .em{font-size:2.5rem;margin-bottom:8px}
+.done h2{font-size:20px;margin-bottom:8px}
+.done p{color:#6b7280;margin-bottom:16px}
+/* venn neither */
+.venn-wrap{position:relative;max-width:420px;margin:0 auto}
+.neither-field{position:absolute;bottom:5%;right:2%;display:flex;flex-direction:column;align-items:center;gap:2px}
+input.nfield{width:54px;padding:3px;border:2px solid #ddd6fe;border-radius:7px;text-align:center;font-size:12px;font-weight:700;color:#4c1d95;background:#faf5ff;outline:none;font-family:monospace}
+input.nfield:disabled{opacity:0.7;background:#ede9fe}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ── helpers ───────────────────────────────────────────────────────────────────
+function r2(n){return Math.round(n*100)/100;}
+function r4(n){return Math.round(n*10000)/10000;}
+function pct(n){return Math.round(n*100);}
+function parseAns(s){
+  if(!s||!s.trim())return NaN;
+  s=s.trim().replace(',','.');
+  if(s.includes('/')){const[a,b]=s.split('/').map(Number);return b?a/b:NaN;}
+  return parseFloat(s);
+}
+function close(a,b){return Math.abs(a-b)<0.02;}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+function r05(n){return Math.round(n*20)/20;} // round to nearest 0.05
+
+// ── Scenario bank ─────────────────────────────────────────────────────────────
+// Each scenario is a function that generates numbers and returns a question object:
+// { storyHTML, findExpr, findAns, hint,
+//   vennData: {aOnly,inter,bOnly,none} or null,
+//   treeData: {pA,pAc,pBgA,pBcgA,pBgAc,pBcgAc,pAB,pAnBc,pAcnB,pAcnBc} or null,
+//   diagramType: "tree"|"venn"|"both"  (just a suggestion label) }
+
+const SCENARIOS = [
+
+  // ── S1: Bus scenario (tree-type) ──────────────────────────────────────────
+  function(){
+    const busDays=pick([2,3,4]);
+    const pBus=r2(busDays/5);
+    const pNoBus=r2(1-pBus);
+    const pLateBus=r05(0.1+Math.random()*0.3);      // 10-40%
+    const pLateNoBus=r05(pLateBus+0.1+Math.random()*0.2); // always higher
+    const pLate=r2(pBus*pLateBus+pNoBus*pLateNoBus);
+    const name=pick(['Jane','Amir','Sofia','Marcus','Priya']);
+    return{
+      storyHTML:`<strong>${name}</strong> takes the bus <strong>${busDays} day${busDays>1?'s':''} out of every 5</strong>. When ${name.toLowerCase()==='jane'||name.toLowerCase()==='sofia'||name.toLowerCase()==='priya'?'she':'he'} takes the bus there is a <strong>${pct(pLateBus)}% chance of being late</strong>. When ${name.toLowerCase()==='jane'||name.toLowerCase()==='sofia'||name.toLowerCase()==='priya'?'she':'he'} doesn&apos;t take the bus there is a <strong>${pct(pLateNoBus)}% chance of being late</strong>.`,
+      findExpr:'P(late)',
+      findAns:pLate,
+      hint:`This is a total probability question. Try P(late) = P(bus) &times; P(late|bus) + P(no bus) &times; P(late|no bus).`,
+      treeData:{pA:pBus,pAc:pNoBus,pBgA:pLateBus,pBcgA:r2(1-pLateBus),pBgAc:pLateNoBus,pBcgAc:r2(1-pLateNoBus),
+        pAB:r2(pBus*pLateBus),pAnBc:r2(pBus*(1-pLateBus)),pAcnB:r2(pNoBus*pLateNoBus),pAcnBc:r2(pNoBus*(1-pLateNoBus))},
+      treeLabels:{A:'Bus',Ac:'No bus',B:'Late',Bc:'Not late'},
+      vennData:null,
+      diagType:'tree',
+    };
+  },
+
+  // ── S2: School languages (Venn-type) ─────────────────────────────────────
+  function(){
+    const total=pick([100,120,150,200]);
+    const spanish=Math.round(total*(0.5+Math.random()*0.25));
+    const french=Math.round(total*(0.4+Math.random()*0.25));
+    const minBoth=Math.max(1,spanish+french-total);
+    const maxBoth=Math.min(spanish,french)-1;
+    if(maxBoth<=minBoth){return SCENARIOS[1]();}
+    const both=minBoth+Math.floor(Math.random()*(maxBoth-minBoth));
+    const aOnly=spanish-both, bOnly=french-both, none=0;
+    // Store exact decimal to 4dp to avoid rounding errors in check
+    const findAns=r4(both/total);
+    const school=pick(['school','college','sixth form']);
+    return{
+      storyHTML:`In a <strong>${school} of ${total} students</strong>, <strong>${spanish} study Spanish</strong> and <strong>${french} study French</strong>. Every student studies at least one of the two languages.`,
+      findExpr:'P(studies both)',
+      findAns:findAns,
+      hint:`Since every student studies at least one language, P(Spanish &cup; French) = 1. Use P(both) = P(Spanish) + P(French) &minus; P(Spanish &cup; French) = ${spanish}/${total} + ${french}/${total} &minus; 1.`,
+      vennData:{aOnly:aOnly,inter:both,bOnly:bOnly,none:0},
+      vennLabels:{A:'Spanish',B:'French'},
+      isFrequency:true, total:total,
+      treeData:null,
+      diagType:'venn',
+    };
+  },
+
+  // ── S3: Medical test (tree-type) ─────────────────────────────────────────
+  function(){
+    const pIll=r05(0.05+Math.random()*0.2);
+    const pWell=r2(1-pIll);
+    const pPosIll=r05(0.7+Math.random()*0.25);   // sensitivity
+    const pPosWell=r05(0.05+Math.random()*0.15);  // false positive
+    const pPos=r2(pIll*pPosIll+pWell*pPosWell);
+    const condition=pick(['a virus','the condition','an infection']);
+    return{
+      storyHTML:`A medical test is used to screen for <strong>${condition}</strong>. The probability a randomly chosen person <strong>has the condition is ${pct(pIll)}%</strong>. If a person <strong>has the condition</strong>, the test is <strong>positive with probability ${pct(pPosIll)}%</strong>. If a person <strong>does not have the condition</strong>, the test is still <strong>positive with probability ${pct(pPosWell)}%</strong>.`,
+      findExpr:'P(positive test)',
+      findAns:pPos,
+      hint:`P(positive) = P(condition) &times; P(positive|condition) + P(no condition) &times; P(positive|no condition).`,
+      treeData:{pA:pIll,pAc:pWell,pBgA:pPosIll,pBcgA:r2(1-pPosIll),pBgAc:pPosWell,pBcgAc:r2(1-pPosWell),
+        pAB:r2(pIll*pPosIll),pAnBc:r2(pIll*(1-pPosIll)),pAcnB:r2(pWell*pPosWell),pAcnBc:r2(pWell*(1-pPosWell))},
+      treeLabels:{A:'Has condition',Ac:'No condition',B:'Positive',Bc:'Negative'},
+      vennData:null,
+      diagType:'tree',
+    };
+  },
+
+  // ── S4: Sport and music (Venn-type) ──────────────────────────────────────
+  function(){
+    const total=pick([80,100,120,150]);
+    const sport=Math.round(total*(0.45+Math.random()*0.2));
+    const music=Math.round(total*(0.35+Math.random()*0.2));
+    const neither=Math.round(total*r05(0.05+Math.random()*0.15));
+    const both=sport+music+neither-total;
+    if(both<=0||both>=Math.min(sport,music)){return SCENARIOS[3]();}
+    const aOnly=sport-both, bOnly=music-both;
+    const findAns=r4(both/total);
+    const school=pick(['class','year group','tutor group']);
+    return{
+      storyHTML:`In a <strong>${school} of ${total} students</strong>, <strong>${sport} play sport</strong> regularly and <strong>${music} play a musical instrument</strong>. <strong>${neither} do neither</strong>.`,
+      findExpr:'P(sport and music)',
+      findAns:findAns,
+      hint:`P(sport &cup; music) = 1 &minus; P(neither) = 1 &minus; ${neither}/${total}. Then P(both) = P(sport) + P(music) &minus; P(sport &cup; music) = ${sport}/${total} + ${music}/${total} &minus; ${total-neither}/${total}.`,
+      vennData:{aOnly:aOnly,inter:both,bOnly:bOnly,none:neither},
+      vennLabels:{A:'Sport',B:'Music'},
+      isFrequency:true, total:total,
+      treeData:null,
+      diagType:'venn',
+    };
+  },
+
+  // ── S5: Weather and commute (tree-type) ──────────────────────────────────
+  function(){
+    const pRain=r05(0.2+Math.random()*0.4);
+    const pNoRain=r2(1-pRain);
+    const pDelayRain=r05(0.4+Math.random()*0.3);
+    const pDelayNoRain=r05(0.05+Math.random()*0.2);
+    const pDelay=r2(pRain*pDelayRain+pNoRain*pDelayNoRain);
+    return{
+      storyHTML:`The probability it rains on any given day is <strong>${pct(pRain)}%</strong>. When it rains, the probability of a delayed train is <strong>${pct(pDelayRain)}%</strong>. When it does not rain, the probability of a delayed train is <strong>${pct(pDelayNoRain)}%</strong>.`,
+      findExpr:'P(delayed train)',
+      findAns:pDelay,
+      hint:`P(delayed) = P(rain) &times; P(delayed|rain) + P(no rain) &times; P(delayed|no rain).`,
+      treeData:{pA:pRain,pAc:pNoRain,pBgA:pDelayRain,pBcgA:r2(1-pDelayRain),pBgAc:pDelayNoRain,pBcgAc:r2(1-pDelayNoRain),
+        pAB:r2(pRain*pDelayRain),pAnBc:r2(pRain*(1-pDelayRain)),pAcnB:r2(pNoRain*pDelayNoRain),pAcnBc:r2(pNoRain*(1-pDelayNoRain))},
+      treeLabels:{A:'Rain',Ac:'No rain',B:'Delayed',Bc:'Not delayed'},
+      vennData:null,
+      diagType:'tree',
+    };
+  },
+];
+
+// ── Build 5 questions ─────────────────────────────────────────────────────────
+function buildQuestions(){
+  const shuffled=[...SCENARIOS].sort(()=>Math.random()-0.5);
+  return shuffled.slice(0,5).map(fn=>fn());
+}
+
+// ── Tree layout ───────────────────────────────────────────────────────────────
+const TR=[22,155],TJ1={bA:[130,72],bAc:[130,238]};
+const TJ2={bBgA:[278,30],bBcgA:[278,114],bBgAc:[278,196],bBcgAc:[278,280]};
+const TLX=410;
+const TL={bAnB:[TLX,30],bAnBc:[TLX,114],bAcnB:[TLX,196],bAcnBc:[TLX,280]};
+function tmid(a,b){return[(a[0]+b[0])/2,(a[1]+b[1])/2];}
+const TBB1={bA:tmid(TR,TJ1.bA),bAc:tmid(TR,TJ1.bAc)};
+const TBB2={bBgA:tmid(TJ1.bA,TJ2.bBgA),bBcgA:tmid(TJ1.bA,TJ2.bBcgA),bBgAc:tmid(TJ1.bAc,TJ2.bBgAc),bBcgAc:tmid(TJ1.bAc,TJ2.bBcgAc)};
+const TLINES=[[TR,TJ1.bA,'bA'],[TR,TJ1.bAc,'bAc'],[TJ1.bA,TJ2.bBgA,'bBgA'],[TJ1.bA,TJ2.bBcgA,'bBcgA'],[TJ1.bAc,TJ2.bBgAc,'bBgAc'],[TJ1.bAc,TJ2.bBcgAc,'bBcgAc'],[TJ2.bBgA,TL.bAnB,'bAnB'],[TJ2.bBcgA,TL.bAnBc,'bAnBc'],[TJ2.bBgAc,TL.bAcnB,'bAcnB'],[TJ2.bBcgAc,TL.bAcnBc,'bAcnBc']];
+const BW=60,BH=24;
+
+function renderTree(q,tVals,filled){
+  const td=q.treeData;
+  const lbl=q.treeLabels||{A:'A',Ac:"A'",B:'B',Bc:"B'"};
+  const correct={bA:td.pA,bAc:td.pAc,bBgA:td.pBgA,bBcgA:td.pBcgA,bBgAc:td.pBgAc,bBcgAc:td.pBcgAc,
+    bAnB:td.pAB,bAnBc:td.pAnBc,bAcnB:td.pAcnB,bAcnBc:td.pAcnBc};
+
+  const lines=TLINES.map(([f,t,bid])=>`<line x1="${f[0]}" y1="${f[1]}" x2="${t[0]}" y2="${t[1]}" stroke="#6ee7b7" stroke-width="1.5"/>`).join('');
+
+  function box(id,cx,cy){
+    const val=filled?correct[id]:(tVals[id]||'');
+    const fill=filled?'#d1fae5':'#f0fdf4';
+    const stroke=filled?'#10b981':'#6ee7b7';
+    return`<g>
+      <rect x="${cx-BW/2}" y="${cy-BH/2}" width="${BW}" height="${BH}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="${filled?2:1.5}"/>
+      ${val!==''?`<text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="11" font-weight="700" fill="${filled?'#065f46':'#0c4a6e'}">${val}</text>`:''}
+      ${!filled?`<foreignObject x="${cx-BW/2+2}" y="${cy-BH/2+2}" width="${BW-4}" height="${BH-4}">
+        <div xmlns="http://www.w3.org/1999/xhtml">
+          <input type="text" inputmode="decimal" value="${val}"
+            oninput="setTree('${id}',this.value)"
+            placeholder="?"
+            style="width:100%;height:100%;border:none;background:transparent;text-align:center;font-size:11px;font-weight:700;color:#065f46;outline:none;padding:0;font-family:monospace;box-sizing:border-box"/>
+        </div>
+      </foreignObject>`:''}
+    </g>`;
+  }
+
+  const boxes=[...Object.entries(TBB1),...Object.entries(TBB2),...Object.entries(TL)].map(([id,[cx,cy]])=>box(id,cx,cy)).join('');
+
+  return`<svg viewBox="0 0 470 312" style="width:100%;display:block;overflow:visible">
+    <circle cx="${TR[0]}" cy="${TR[1]}" r="4" fill="#64748b"/>
+    ${lines}${boxes}
+    <text x="${TJ1.bA[0]}" y="${TJ1.bA[1]-13}" text-anchor="middle" font-size="12" font-weight="700" fill="#1e293b">${lbl.A}</text>
+    <text x="${TJ1.bAc[0]}" y="${TJ1.bAc[1]+21}" text-anchor="middle" font-size="12" font-weight="700" fill="#1e293b">${lbl.Ac}</text>
+    <text x="${TJ2.bBgA[0]+5}" y="${TJ2.bBgA[1]-11}" text-anchor="start" font-size="10" font-weight="700" fill="#1e293b">${lbl.B}</text>
+    <text x="${TJ2.bBcgA[0]+5}" y="${TJ2.bBcgA[1]+18}" text-anchor="start" font-size="10" font-weight="700" fill="#1e293b">${lbl.Bc}</text>
+    <text x="${TJ2.bBgAc[0]+5}" y="${TJ2.bBgAc[1]-11}" text-anchor="start" font-size="10" font-weight="700" fill="#1e293b">${lbl.B}</text>
+    <text x="${TJ2.bBcgAc[0]+5}" y="${TJ2.bBcgAc[1]+18}" text-anchor="start" font-size="10" font-weight="700" fill="#1e293b">${lbl.Bc}</text>
+  </svg>`;
+}
+
+// ── Venn layout ───────────────────────────────────────────────────────────────
+const VLX=138,VRX=258,VCY=128,VR=92;
+
+function renderVenn(q,vVals,filled){
+  const vd=q.vennData;
+  const lbl=q.vennLabels||{A:'A',B:'B'};
+  const correct={aOnly:vd.aOnly,inter:vd.inter,bOnly:vd.bOnly,none:vd.none};
+  const isFreq=!!q.isFrequency;
+
+  function region(k,cx,cy){
+    const val=filled?correct[k]:(vVals[k]||'');
+    if(filled){
+      return`<text x="${cx}" y="${cy+5}" text-anchor="middle" font-size="13" font-weight="700" fill="#065f46">${val}</text>`;
+    }
+    return`<foreignObject x="${cx-26}" y="${cy-14}" width="52" height="28">
+      <div xmlns="http://www.w3.org/1999/xhtml">
+        <input type="text" inputmode="${isFreq?'numeric':'decimal'}" value="${val}"
+          oninput="setVenn('${k}',this.value)"
+          placeholder="?"
+          style="width:100%;height:100%;border:2px solid #6ee7b7;border-radius:6px;text-align:center;font-size:12px;font-weight:700;color:#065f46;background:#f0fdf4;outline:none;box-sizing:border-box;padding:1px;font-family:monospace"/>
+      </div>
+    </foreignObject>`;
+  }
+
+  const noneVal=filled?correct.none:(vVals.none||'');
+
+  return`<div class="venn-wrap">
+    <svg viewBox="0 0 400 258" style="width:100%;display:block;overflow:visible">
+      <defs><clipPath id="vca3"><circle cx="${VLX}" cy="${VCY}" r="${VR}"/></clipPath></defs>
+      <rect x="6" y="6" width="388" height="246" rx="12" fill="#f0fdf4" stroke="#6ee7b7" stroke-width="1.5"/>
+      <circle cx="${VLX}" cy="${VCY}" r="${VR}" fill="#d1fae5" stroke="none"/>
+      <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="#a7f3d0" stroke="none"/>
+      <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="#6ee7b7" stroke="none" clip-path="url(#vca3)" style="pointer-events:none"/>
+      <circle cx="${VLX}" cy="${VCY}" r="${VR}" fill="none" stroke="#10b981" stroke-width="2"/>
+      <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="none" stroke="#10b981" stroke-width="2"/>
+      <text x="${VLX-14}" y="34" text-anchor="middle" font-size="14" font-weight="700" fill="#065f46">${lbl.A}</text>
+      <text x="${VRX+14}" y="34" text-anchor="middle" font-size="14" font-weight="700" fill="#065f46">${lbl.B}</text>
+      ${region('aOnly',VLX-40,VCY)}
+      ${region('inter',(VLX+VRX)/2,VCY)}
+      ${region('bOnly',VRX+40,VCY)}
+    </svg>
+    <div class="neither-field">
+      ${filled
+        ?`<span style="font-size:13px;font-weight:700;color:#065f46;background:#d1fae5;border-radius:6px;padding:2px 8px;border:1px solid #6ee7b7">${noneVal}</span>`
+        :`<input class="nfield" type="text" inputmode="decimal" value="${noneVal}"
+            oninput="setVenn('none',this.value)" placeholder="?"/>`
+      }
+    </div>
+  </div>`;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let questions=buildQuestions();
+let qi=0,results=[];
+let ansVal='',ansStatus=null,answered=false;
+let showHint=false,showVenn=false,showTree=false,fillDiag=false;
+let tVals={},vVals={aOnly:'',inter:'',bOnly:'',none:''};
+
+function initQ(){
+  ansVal='';ansStatus=null;answered=false;
+  showHint=false;showVenn=false;showTree=false;fillDiag=false;
+  tVals={};vVals={aOnly:'',inter:'',bOnly:'',none:''};
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render(){
+  const app=document.getElementById('app');
+  if(qi>=questions.length){
+    const score=results.filter(Boolean).length;
+    app.innerHTML=`<div class="card done"><div class="em">&#x1F389;</div><h2>Well done!</h2><p>You scored <strong>${score} out of ${questions.length}</strong></p><button class="pri" onclick="restart()">Try again</button></div>`;
+    return;
+  }
+  const q=questions[qi];
+  const hasVenn=!!q.vennData;
+  const hasTree=!!q.treeData;
+  const canShowVenn=hasVenn||(hasTree); // tree questions can still show a venn
+  const canShowTree=hasTree||(hasVenn); // venn questions can still show a tree (blank)
+
+  app.innerHTML=`
+  <div class="header">
+    <span class="logo">P context</span>
+    <span class="badge">Q${qi+1} / ${questions.length}</span>
+  </div>
+  <div class="dots">${questions.map((_,i)=>`<div class="dot${i<results.length?(results[i]?' ok':' bad'):i===qi?' cur':''}"></div>`).join('')}</div>
+
+  <div class="toolbar">
+    <button class="tbtn${showHint?' act':''}" onclick="toggle('hint')">${showHint?'Hide hint':'Show hint'}</button>
+    <button class="tbtn${showVenn?' act':''}" onclick="toggle('venn')">${showVenn?'Hide Venn':'Show Venn'}</button>
+    <button class="tbtn${showTree?' act':''}" onclick="toggle('tree')">${showTree?'Hide tree':'Show tree'}</button>
+    ${showVenn||showTree?`<button class="tbtn warn${fillDiag?' act':''}" onclick="toggle('fill')">${fillDiag?'Hide filled diagram':'Fill diagram'}</button>`:''}
+  </div>
+
+  ${showHint?`<div class="hint-box">&#x1F4A1; ${q.hint}</div>`:''}
+  ${fillDiag?`<div class="fill-box">&#x2705; The diagram has been filled in with the correct values.</div>`:''}
+
+  <div class="card">
+    <div class="qtype">Contextual probability</div>
+    <div class="scenario">${q.storyHTML}</div>
+    <div class="find">Find <em>${q.findExpr}</em></div>
+    ${q.isFrequency?`<div style="font-size:12px;color:#6b7280;margin-bottom:8px">You can enter the number of students (e.g. 29) or the probability as a decimal or fraction.</div>`:''}
+
+    <div class="ans-row">
+      <span class="ans-label">${q.findExpr} =</span>
+      <input class="ans-inp${ansStatus==='ok'?' ok':ansStatus==='bad'?' bad':''}"
+        type="text" inputmode="decimal" id="ansInput"
+        value="${ansVal}"
+        placeholder="e.g. 0.35"
+        onkeydown="if(event.key==='Enter')checkAns()"
+        oninput="ansVal=this.value"
+        ${ansStatus==='ok'?'disabled':''}/>
+      ${ansStatus!=='ok'?`<button class="sm" ${ansVal.trim()?'':'disabled'} onclick="checkAns()">Check</button>`:''}
+    </div>
+    ${ansStatus==='ok'?`<div class="fb ok">&#x2713; Correct! ${q.findExpr} = ${q.findAns}</div>`:''}
+    ${ansStatus==='bad'?`<div class="fb bad">Not quite &mdash; try again, or use a hint.</div>`:''}
+
+    ${showVenn||showTree?`<div class="diag-section">
+      <div class="diag-row">
+        ${showVenn?`<div class="diag-col">
+          <div class="diag-label">Venn diagram</div>
+          ${hasVenn?renderVenn(q,vVals,fillDiag):`<div style="padding:12px;font-size:12px;color:#6b7280;background:#f9fafb;border-radius:8px">This question is best shown as a tree diagram, but you can use the Venn as a working space.</div>${renderVenn({vennData:{aOnly:0,inter:0,bOnly:0,none:0},vennLabels:q.treeLabels?{A:q.treeLabels.A,B:q.treeLabels.B}:{A:'A',B:'B'}},vVals,false)}`}
+        </div>`:''}
+        ${showTree?`<div class="diag-col">
+          <div class="diag-label">Tree diagram</div>
+          ${hasTree?renderTree(q,tVals,fillDiag):`<div style="padding:12px;font-size:12px;color:#6b7280;background:#f9fafb;border-radius:8px">This question is best shown as a Venn diagram, but you can use the tree as a working space.</div>${renderTree({treeData:{pA:0,pAc:0,pBgA:0,pBcgA:0,pBgAc:0,pBcgAc:0,pAB:0,pAnBc:0,pAcnB:0,pAcnBc:0},treeLabels:q.vennLabels?{A:q.vennLabels.A,Ac:"Not "+q.vennLabels.A,B:q.vennLabels.B,Bc:"Not "+q.vennLabels.B}:{A:'A',Ac:"A'",B:'B',Bc:"B'"}},tVals,false)}`}
+        </div>`:''}
+      </div>
+    </div>`:''}
+
+    ${answered?`<div class="actions"><button class="pri" onclick="nextQ()">${qi+1>=questions.length?'See results':'Next question'}</button></div>`:''}
+  </div>`;
+
+  const ai=document.getElementById('ansInput');
+  if(ai){ai.oninput=function(){ansVal=this.value;};}
+}
+
+// ── Handlers ──────────────────────────────────────────────────────────────────
+function setTree(id,v){tVals[id]=v;}
+function setVenn(k,v){vVals[k]=v;}
+
+function toggle(t){
+  if(t==='hint'){showHint=!showHint;}
+  else if(t==='venn'){showVenn=!showVenn;}
+  else if(t==='tree'){showTree=!showTree;}
+  else if(t==='fill'){fillDiag=!fillDiag;}
+  render();
+}
+
+function checkAns(){
+  const q=questions[qi];
+  const inp=document.getElementById('ansInput');
+  if(inp) ansVal=inp.value;
+  if(!ansVal.trim()) return;
+  let v=parseAns(ansVal);
+  // Accept raw count for frequency questions e.g. "29" treated as 29/total
+  if(q.isFrequency && !isNaN(v) && v>1 && q.total) v=r4(v/q.total);
+  ansStatus=(!isNaN(v)&&close(v,q.findAns))?'ok':'bad';
+  if(!answered){results.push(ansStatus==='ok');answered=true;}
+  render();
+}
+
+function nextQ(){qi++;initQ();render();}
+function restart(){questions=buildQuestions();qi=0;results=[];initQ();render();}
+
+render();
+</script>
+</body>
+</html>

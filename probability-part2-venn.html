@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f5f3ff;padding:8px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.logo{font-family:Georgia,serif;font-size:18px;color:#4c1d95}
+.badge{background:#7c3aed;color:#fff;border-radius:99px;padding:2px 12px;font-size:12px}
+.dots{display:flex;gap:6px;margin-bottom:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:#e5e7eb;transition:background .3s}
+.dot.cur{background:#7c3aed}.dot.ok{background:#16a34a}.dot.bad{background:#dc2626}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px #7c3aed18;padding:14px;margin-bottom:10px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tbtn{background:transparent;border:1.5px solid #ddd6fe;border-radius:8px;padding:5px 12px;font-size:11px;color:#7c3aed;cursor:pointer}
+.tbtn.act{background:#7c3aed;color:#fff;border-color:#7c3aed}
+.hint-box{background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:12px;color:#713f12;margin-top:8px;line-height:1.5}
+.qtype{font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.07em;margin-bottom:4px}
+.qtext{font-size:15px;color:#1e1b4b;margin-bottom:12px;line-height:1.5}
+.qtext .given{font-weight:600;color:#374151}
+.qtext .find{font-weight:700;color:#7c3aed}
+.ans-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 10px}
+.ans-label{font-size:15px;font-weight:700;color:#4c1d95;white-space:nowrap}
+input.ans-inp{border:2px solid #ddd6fe;border-radius:8px;padding:7px 10px;font-size:15px;font-family:monospace;color:#1e1b4b;outline:none;width:120px;background:#faf5ff}
+input.ans-inp:focus{border-color:#7c3aed}
+input.ans-inp.ok{border-color:#16a34a;background:#dcfce7}
+input.ans-inp.bad{border-color:#dc2626;background:#fee2e2}
+input.ans-inp:disabled{opacity:0.75}
+.fb{border-radius:8px;padding:8px 12px;font-size:13px;margin:6px 0;line-height:1.5}
+.fb.ok{background:#dcfce7;color:#166534}
+.fb.bad{background:#fee2e2;color:#991b1b}
+button{background:transparent;border:1.5px solid #ddd6fe;border-radius:8px;padding:6px 16px;font-size:13px;color:#4c1d95;cursor:pointer}
+button:disabled{opacity:0.4;cursor:default}
+button.pri{background:#7c3aed;color:#fff;border-color:#7c3aed}
+button.sm{padding:5px 12px;font-size:12px}
+.row{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;align-items:center}
+.step-label{font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.06em;margin:10px 0 5px}
+.venn-wrap{position:relative;max-width:460px;margin:0 auto}
+.neither-field{position:absolute;bottom:5%;right:2%;display:flex;flex-direction:column;align-items:center;gap:2px}
+.nlabel{font-size:10px;color:#9ca3af;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+input.nfield{width:58px;padding:4px;border:2px solid #ddd6fe;border-radius:7px;text-align:center;font-size:13px;font-weight:700;color:#4c1d95;background:#faf5ff;outline:none;font-family:monospace}
+input.nfield:disabled{opacity:0.7}
+input.nfield.ok{border-color:#16a34a;background:#dcfce7;color:#166534}
+input.nfield.bad{border-color:#dc2626;background:#fee2e2;color:#991b1b}
+.diag-note{font-size:12px;color:#6b7280;margin-top:6px;font-style:italic}
+.actions{display:flex;justify-content:flex-end;margin-top:10px}
+.done{text-align:center;padding:2rem 1rem}
+.done .em{font-size:2.5rem;margin-bottom:8px}
+.done h2{font-size:20px;margin-bottom:8px}
+.done p{color:#6b7280;margin-bottom:16px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ── helpers ───────────────────────────────────────────────────────────────────
+function r2(n){return Math.round(n*100)/100;}
+function parseAns(s){
+  if(!s||!s.trim())return NaN;
+  s=s.trim().replace(',','.');
+  if(s.includes('/')){const[a,b]=s.split('/').map(Number);return b?a/b:NaN;}
+  return parseFloat(s);
+}
+function close(a,b){return Math.abs(a-b)<0.02;}
+
+// ── Scenario: pick nice values in steps of 0.05 ───────────────────────────────
+function genScenario(){
+  // Generate pA, pB, pAB all as multiples of 0.05 with pAB <= min(pA,pB)
+  // and pAB >= max(0, pA+pB-1)
+  const steps=[];
+  for(let i=1;i<20;i++)steps.push(r2(i*0.05)); // 0.05 to 0.95
+
+  for(let tries=0;tries<500;tries++){
+    const pA =steps[Math.floor(Math.random()*steps.length)];
+    const pB =steps[Math.floor(Math.random()*steps.length)];
+    const minAB=r2(Math.max(0.05, pA+pB-1));
+    const maxAB=r2(Math.min(pA,pB)-0.05); // ensure pAonly and pBonly >0
+    if(maxAB<minAB)continue;
+    // collect valid pAB values
+    const valid=[];
+    for(let v=minAB;v<=maxAB+0.001;v=r2(v+0.05))valid.push(r2(v));
+    if(!valid.length)continue;
+    const pAB=valid[Math.floor(Math.random()*valid.length)];
+    const pAuB=r2(pA+pB-pAB);
+    const pAonly=r2(pA-pAB), pBonly=r2(pB-pAB), pNone=r2(1-pAuB);
+    if(pAonly>0&&pBonly>0&&pNone>0&&pAuB<=1)
+      return{pA,pB,pAB,pAuB,pAonly,pBonly,pNone,
+             pAc:r2(1-pA),pBc:r2(1-pB)};
+  }
+  return{pA:0.6,pB:0.5,pAB:0.2,pAuB:0.9,pAonly:0.4,pBonly:0.3,pNone:0.1,pAc:0.4,pBc:0.5};
+}
+
+// ── Build 5 questions: any 3 of {P(A)/P(A'), P(B)/P(B'), P(A∩B), P(A∪B)} → find 4th ──
+function buildQuestions(sc){
+  const qs=[];
+
+  // Helper: each question has
+  //  givenText: string shown to student
+  //  findExpr:  what to find
+  //  findAns:   correct numeric answer
+  //  hint:      shown when hint toggled
+  //  diagCorrect: {aOnly, inter, bOnly, none} — correct Venn values
+
+  const dc={aOnly:sc.pAonly,inter:sc.pAB,bOnly:sc.pBonly,none:sc.pNone};
+
+  // Group: find P(A∩B) from P(A), P(B), P(A∪B)
+  qs.push({
+    givenText:`P(A) = ${sc.pA},  P(B) = ${sc.pB},  P(A &cup; B) = ${sc.pAuB}`,
+    findExpr:'P(A &cap; B)',findAns:sc.pAB,
+    hint:'Use P(A &cap; B) = P(A) + P(B) &minus; P(A &cup; B)',
+    diagCorrect:dc});
+
+  // Find P(A∪B) from P(A), P(B), P(A∩B)
+  qs.push({
+    givenText:`P(A) = ${sc.pA},  P(B) = ${sc.pB},  P(A &cap; B) = ${sc.pAB}`,
+    findExpr:'P(A &cup; B)',findAns:sc.pAuB,
+    hint:'Use P(A &cup; B) = P(A) + P(B) &minus; P(A &cap; B)',
+    diagCorrect:dc});
+
+  // Find P(A) from P(B), P(A∩B), P(A∪B)
+  qs.push({
+    givenText:`P(B) = ${sc.pB},  P(A &cap; B) = ${sc.pAB},  P(A &cup; B) = ${sc.pAuB}`,
+    findExpr:'P(A)',findAns:sc.pA,
+    hint:'Use P(A) = P(A &cup; B) &minus; P(B) + P(A &cap; B)',
+    diagCorrect:dc});
+
+  // Find P(A∩B) using P(A'), P(B'), P(A∪B) — uses complements
+  qs.push({
+    givenText:`P(A&prime;) = ${sc.pAc},  P(B&prime;) = ${sc.pBc},  P(A &cup; B) = ${sc.pAuB}`,
+    findExpr:'P(A &cap; B)',findAns:sc.pAB,
+    hint:"Convert: P(A) = 1 &minus; P(A&prime;), P(B) = 1 &minus; P(B&prime;), then P(A&cap;B) = P(A) + P(B) &minus; P(A&cup;B)",
+    diagCorrect:dc});
+
+  // Find P(B) using P(A'), P(A∩B), P(A∪B)
+  qs.push({
+    givenText:`P(A&prime;) = ${sc.pAc},  P(A &cap; B) = ${sc.pAB},  P(A &cup; B) = ${sc.pAuB}`,
+    findExpr:'P(B)',findAns:sc.pB,
+    hint:"P(A) = 1 &minus; P(A&prime;), then P(B) = P(A&cup;B) &minus; P(A) + P(A&cap;B)",
+    diagCorrect:dc});
+
+  return qs;
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let sc=genScenario();
+let questions=buildQuestions(sc);
+let qi=0,results=[];
+let ansVal='',ansStatus=null;
+let vennVals={aOnly:'',inter:'',bOnly:'',none:''};
+let vennStatus={aOnly:null,inter:null,bOnly:null,none:null};
+let diagChecked=false,answered=false,showHint=false;
+
+function initQ(){
+  ansVal='';ansStatus=null;
+  vennVals={aOnly:'',inter:'',bOnly:'',none:''};
+  vennStatus={aOnly:null,inter:null,bOnly:null,none:null};
+  diagChecked=false;answered=false;
+}
+
+// ── Venn SVG ──────────────────────────────────────────────────────────────────
+const VLX=148,VRX=272,VCY=135,VR=98;
+
+function fieldFill(k){
+  if(vennStatus[k]==='ok')return'#dcfce7';
+  if(vennStatus[k]==='bad')return'#fee2e2';
+  return{aOnly:'#fed7aa',inter:'#ddd6fe',bOnly:'#bfdbfe',none:'#f9fafb'}[k];
+}
+function fieldStroke(k){
+  if(vennStatus[k]==='ok')return'#16a34a';
+  if(vennStatus[k]==='bad')return'#dc2626';
+  return'#374151';
+}
+
+function innerField(k,cx,cy,q){
+  const st=vennStatus[k];
+  if(st==='ok'){
+    return`<text x="${cx}" y="${cy+6}" text-anchor="middle" font-size="14" font-weight="700" fill="#166534">${vennVals[k]}</text>`;
+  }
+  if(st==='bad'){
+    return`<text x="${cx}" y="${cy-4}" text-anchor="middle" font-size="10" fill="#dc2626" text-decoration="line-through">${vennVals[k]}</text>
+           <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="13" font-weight="700" fill="#991b1b">${q.diagCorrect[k]}</text>`;
+  }
+  return`<foreignObject x="${cx-28}" y="${cy-15}" width="56" height="30">
+    <div xmlns="http://www.w3.org/1999/xhtml">
+      <input type="text" inputmode="decimal" value="${vennVals[k]}"
+        oninput="setVenn('${k}',this.value)" placeholder="?"
+        style="width:100%;height:100%;border:2px solid #c4b5fd;border-radius:7px;text-align:center;font-size:13px;font-weight:700;color:#4c1d95;background:#faf5ff;outline:none;box-sizing:border-box;padding:1px;font-family:monospace"/>
+    </div>
+  </foreignObject>`;
+}
+
+function renderVenn(q){
+  return`<svg viewBox="0 0 420 272" style="width:100%;display:block;overflow:visible">
+    <defs><clipPath id="vca"><circle cx="${VLX}" cy="${VCY}" r="${VR}"/></clipPath></defs>
+    <rect x="6" y="6" width="408" height="260" rx="12" fill="#f9fafb" stroke="#e5e7eb" stroke-width="1.5"/>
+    <circle cx="${VLX}" cy="${VCY}" r="${VR}" fill="${fieldFill('aOnly')}" stroke="none"/>
+    <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="${fieldFill('bOnly')}" stroke="none"/>
+    <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="${fieldFill('inter')}" stroke="none" clip-path="url(#vca)" style="pointer-events:none"/>
+    <circle cx="${VLX}" cy="${VCY}" r="${VR}" fill="none" stroke="${fieldStroke('aOnly')}" stroke-width="2"/>
+    <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="none" stroke="${fieldStroke('bOnly')}" stroke-width="2"/>
+    <text x="${VLX-16}" y="38" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2937">A</text>
+    <text x="${VRX+16}" y="38" text-anchor="middle" font-size="18" font-weight="700" fill="#1f2937">B</text>
+    ${innerField('aOnly',VLX-42,VCY,q)}
+    ${innerField('inter',(VLX+VRX)/2,VCY,q)}
+    ${innerField('bOnly',VRX+42,VCY,q)}
+  </svg>`;
+}
+
+// ── Main render ───────────────────────────────────────────────────────────────
+function render(){
+  const app=document.getElementById('app');
+  if(qi>=questions.length){
+    const score=results.filter(Boolean).length;
+    app.innerHTML=`<div class="card done"><div class="em">&#x1F389;</div><h2>Round complete!</h2><p>You scored <strong>${score} out of ${questions.length}</strong></p><button class="pri" onclick="restart()">Try again</button></div>`;
+    return;
+  }
+  const q=questions[qi];
+  const nSt=vennStatus['none'];
+  const allVennFilled=Object.values(vennVals).every(v=>v&&v.trim());
+  const diagAllOk=Object.values(vennStatus).every(s=>s==='ok');
+
+  app.innerHTML=`
+  <div class="header">
+    <span class="logo">P Venn</span>
+    <span class="badge">Q${qi+1} / ${questions.length}</span>
+  </div>
+  <div class="dots">${questions.map((_,i)=>`<div class="dot${i<results.length?(results[i]?' ok':' bad'):i===qi?' cur':''}"></div>`).join('')}</div>
+
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+    <button class="tbtn${showHint?' act':''}" onclick="toggleHint()" style="flex-shrink:0">${showHint?'Hide hint':'Show hint'}</button>
+    ${showHint?`<div class="hint-box" style="flex:1;min-width:200px;margin:0">&#x1F4A1; ${q.hint}</div>`:''}
+  </div>
+
+  <div class="card">
+    <div class="qtype">Calculate</div>
+    <p class="qtext">
+      <span class="given">Given ${q.givenText}</span><br>
+      <span class="find">Find ${q.findExpr}</span>
+    </p>
+
+    <div class="ans-row">
+      <span class="ans-label">${q.findExpr} =</span>
+      <input class="ans-inp${ansStatus==='ok'?' ok':ansStatus==='bad'?' bad':''}"
+        type="text" inputmode="decimal" id="ansInput"
+        value="${ansVal}"
+        placeholder="e.g. 0.3 or 3/10"
+        onkeydown="if(event.key==='Enter')checkAns()"
+        oninput="ansVal=this.value"
+        ${ansStatus==='ok'?'disabled':''}/>
+      ${ansStatus!=='ok'?`<button class="sm" onclick="checkAns()">Check answer</button>`:''}
+    </div>
+    ${ansStatus==='ok'?`<div class="fb ok">&#x2713; Correct! ${q.findExpr} = ${q.findAns}</div>`:''}
+    ${ansStatus==='bad'?`<div class="fb bad">Not quite &mdash; try again, or use the hint.</div>`:''}
+
+    <div class="step-label" style="margin-top:14px">Use the Venn diagram as working space</div>
+    <p class="diag-note">Fill in any sections you know. When you have answered, you can check the diagram.</p>
+
+    <div class="venn-wrap">
+      ${renderVenn(q)}
+      <div class="neither-field">
+        ${nSt==='ok'
+          ?`<span style="font-size:14px;font-weight:700;color:#166534;background:#dcfce7;border-radius:6px;padding:2px 10px;border:1px solid #bbf7d0">&#x2713; ${vennVals.none}</span>`
+          :nSt==='bad'
+            ?`<span style="font-size:13px;font-weight:700;color:#991b1b;background:#fee2e2;border-radius:6px;padding:2px 10px;border:1px solid #fecaca">${q.diagCorrect.none}</span>`
+            :`<input class="nfield" type="text" inputmode="decimal" value="${vennVals.none}"
+                id="vf_none" oninput="setVenn('none',this.value)" placeholder="?"/>`
+        }
+      </div>
+    </div>
+
+    <div class="row">
+      <button class="sm" onclick="checkDiagram()">Check diagram</button>
+      ${!answered?`<span style="font-size:11px;color:#9ca3af">Answer the question above first</span>`:''}
+      ${diagChecked&&!diagAllOk?`<span style="font-size:12px;color:#dc2626">Some sections need correcting.</span>`:''}
+      ${diagAllOk?`<span style="font-size:12px;color:#16a34a">&#x2713; Diagram correct!</span>`:''}
+    </div>
+
+    ${answered?`<div class="actions"><button class="pri" onclick="nextQ()">${qi+1>=questions.length?'See results':'Next question'}</button></div>`:''}
+  </div>`;
+
+  const ai=document.getElementById('ansInput');
+  if(ai){ai.oninput=function(){ansVal=this.value;};}
+}
+
+// ── Handlers ──────────────────────────────────────────────────────────────────
+function setVenn(k,v){vennVals[k]=v;}
+
+function checkAns(){
+  const q=questions[qi];
+  // Always read from DOM to avoid stale ansVal on button click
+  const inp=document.getElementById('ansInput');
+  if(inp) ansVal=inp.value;
+  if(!ansVal.trim()) return;
+  const v=parseAns(ansVal);
+  ansStatus=(!isNaN(v)&&close(v,q.findAns))?'ok':'bad';
+  if(!answered){
+    results.push(ansStatus==='ok');
+    answered=true;
+  }
+  render();
+}
+
+function checkDiagram(){
+  if(!answered) return;
+  const q=questions[qi];
+  diagChecked=true;
+  ['aOnly','inter','bOnly','none'].forEach(k=>{
+    // read from DOM in case of stale state
+    const inp=document.getElementById('vf_'+k);
+    if(inp) vennVals[k]=inp.value;
+    const v=parseAns(vennVals[k]||'');
+    vennStatus[k]=(!isNaN(v)&&close(v,q.diagCorrect[k]))?'ok':'bad';
+  });
+  render();
+}
+
+function nextQ(){qi++;initQ();render();}
+function toggleHint(){showHint=!showHint;render();}
+function restart(){
+  sc=genScenario();questions=buildQuestions(sc);
+  qi=0;results=[];showHint=false;initQ();render();
+}
+
+render();
+</script>
+</body>
+</html>

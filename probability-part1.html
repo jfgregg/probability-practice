@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f5f3ff;padding:8px;min-height:100vh}
+.header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.logo{font-family:Georgia,serif;font-size:18px;color:#4c1d95}
+.badge{background:#7c3aed;color:#fff;border-radius:99px;padding:2px 12px;font-size:12px}
+.dots{display:flex;gap:6px;margin-bottom:10px}
+.dot{width:10px;height:10px;border-radius:50%;background:#e5e7eb;transition:background .3s}
+.dot.cur{background:#7c3aed}.dot.ok{background:#16a34a}.dot.bad{background:#dc2626}
+.card{background:#fff;border-radius:16px;box-shadow:0 4px 24px #7c3aed18;padding:14px;margin-bottom:10px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ctrl-label{font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+.seg{display:flex;border:1.5px solid #ddd6fe;border-radius:8px;overflow:hidden}
+.seg button{flex:1;background:transparent;border:none;border-right:1px solid #ddd6fe;padding:5px 8px;font-size:11px;color:#6b7280;cursor:pointer;white-space:nowrap}
+.seg button:last-child{border-right:none}
+.seg button.act{background:#7c3aed;color:#fff}
+.tbtn{background:transparent;border:1.5px solid #ddd6fe;border-radius:8px;padding:5px 12px;font-size:11px;color:#6b7280;cursor:pointer}
+.tbtn.act{background:#7c3aed;color:#fff;border-color:#7c3aed}
+.note{background:#fef9c3;border:1px solid #fde68a;border-radius:8px;padding:8px 12px;font-size:12px;color:#713f12;margin-bottom:10px;line-height:1.5}
+.mnote{background:#ede9fe;border:1px solid #ddd6fe;border-radius:8px;padding:6px 12px;font-size:12px;color:#5b21b6;margin-bottom:10px}
+.qtype{font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:.07em}
+h2{font-size:15px;color:#1e1b4b;margin:4px 0 8px;line-height:1.4}
+.dual{display:flex;gap:10px;flex-wrap:wrap}
+.dcol{flex:1 1 270px;min-width:0}
+.dlabel{font-size:11px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+svg{width:100%;display:block;touch-action:manipulation;cursor:default}
+.row{display:flex;gap:6px;margin-top:5px;flex-wrap:wrap}
+button{background:transparent;border:1.5px solid #ddd6fe;border-radius:8px;padding:5px 14px;font-size:13px;color:#374151;cursor:pointer}
+button:disabled{opacity:0.4;cursor:default}
+button.pri{background:#7c3aed;color:#fff;border-color:#7c3aed}
+button.sm{padding:4px 10px;font-size:12px}
+.fb{border-radius:8px;padding:6px 10px;font-size:12px;margin-top:5px;line-height:1.4}
+.fb.ok{background:#dcfce7;color:#166534}.fb.bad{background:#fee2e2;color:#991b1b}
+.guide{font-size:12px;color:#7c3aed;font-weight:600;margin-top:8px;text-align:center}
+.actions{display:flex;justify-content:flex-end;margin-top:10px}
+.rtag{font-size:10px;background:#ede9fe;color:#5b21b6;border-radius:4px;padding:1px 5px;margin-left:4px}
+.done{text-align:center;padding:2rem 1rem}
+.done .em{font-size:2.5rem;margin-bottom:8px}
+.done h2{font-size:20px;margin-bottom:8px}
+.done p{color:#6b7280;margin-bottom:16px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const QUESTIONS=[
+  {id:"pA",expr:"P(A)",note:"On the Venn, P(A) is everything inside circle A. On the tree, it is the A branch box - or equivalently both leaves on the A branch.",
+   venn:["aOnly","inter"],tree:["bA"],treeAlt:["bAnB","bAnBc"],treeXH:[["bA",["bAnB","bAnBc"]]],
+   explain:"P(A) covers the A-only and intersection on the Venn, and the A branch box on the tree."},
+  {id:"pAc",expr:"P(A&prime;)",note:"On the Venn, P(A&prime;) is everything outside circle A. On the tree it is the A&prime; branch box - or both leaves on the A&prime; branch.",
+   venn:["bOnly","none"],tree:["bAc"],treeAlt:["bAcnB","bAcnBc"],treeXH:[["bAc",["bAcnB","bAcnBc"]]],
+   explain:"P(A&prime;) is the B-only and Neither regions on the Venn, and the A&prime; branch box on the tree."},
+  {id:"pAB",expr:"P(A &cap; B)",note:"On the Venn, P(A&cap;B) is the overlap of both circles. On the tree it is the top leaf - end of the A&rarr;B path.",
+   venn:["inter"],tree:["bAnB"],treeAlt:null,treeXH:[],explain:"P(A&cap;B) is the intersection on the Venn and the top leaf on the tree."},
+  {id:"pAnBc",expr:"P(A &cap; B&prime;)",note:"On the Venn, P(A&cap;B&prime;) is the part of A outside B. On the tree it is the leaf at the end of the A&rarr;B&prime; path.",
+   venn:["aOnly"],tree:["bAnBc"],treeAlt:null,treeXH:[],explain:"P(A&cap;B&prime;) is the A-only region on the Venn and the second leaf on the tree."},
+  {id:"pAcnB",expr:"P(A&prime; &cap; B)",note:"On the Venn, P(A&prime;&cap;B) is the part of B outside A. On the tree it is the leaf at the end of the A&prime;&rarr;B path.",
+   venn:["bOnly"],tree:["bAcnB"],treeAlt:null,treeXH:[],explain:"P(A&prime;&cap;B) is the B-only region on the Venn and the third leaf on the tree."},
+  {id:"pAcnBc",expr:"P(A&prime; &cap; B&prime;)",note:"On the Venn, P(A&prime;&cap;B&prime;) is outside both circles. On the tree it is the bottom leaf - end of the A&prime;&rarr;B&prime; path.",
+   venn:["none"],tree:["bAcnBc"],treeAlt:null,treeXH:[],explain:"P(A&prime;&cap;B&prime;) is the Neither region on the Venn and the bottom leaf on the tree."},
+  {id:"pAuB",expr:"P(A &cup; B)",note:"On the Venn, P(A&cup;B) covers everything inside either circle. On the tree it is three leaves - everything except the A&prime;&cap;B&prime; leaf.",
+   venn:["aOnly","inter","bOnly"],tree:["bAnB","bAnBc","bAcnB"],treeAlt:null,treeXH:[],explain:"P(A&cup;B) is three Venn regions and three tree leaves - all paths except A&prime;&rarr;B&prime;."},
+  {id:"pB",expr:"P(B)",note:"On the Venn, P(B) is everything inside circle B. On the tree there is no single branch box for P(B) - you must select two leaf boxes.",
+   venn:["inter","bOnly"],tree:["bAnB","bAcnB"],treeAlt:null,treeXH:[],explain:"P(B) needs two leaves on the tree: P(A&cap;B) and P(A&prime;&cap;B) added together."},
+  {id:"pBc",expr:"P(B&prime;)",note:"On the Venn, P(B&prime;) is everything outside circle B. On the tree it is two leaf boxes - one from each main branch.",
+   venn:["aOnly","none"],tree:["bAnBc","bAcnBc"],treeAlt:null,treeXH:[],explain:"P(B&prime;) is the A-only and Neither on the Venn, and the two B&prime; leaves on the tree."},
+  {id:"pAuBcc",expr:"P((A &cup; B)&prime;)",note:"P((A&cup;B)&prime;) is outside both circles - just the Neither region. On the tree it is only the bottom leaf.",
+   venn:["none"],tree:["bAcnBc"],treeAlt:null,treeXH:[],explain:"P((A&cup;B)&prime;) is the Neither region on the Venn and the A&prime;&cap;B&prime; leaf on the tree."},
+  {id:"pABcc",expr:"P((A &cap; B)&prime;)",note:"P((A&cap;B)&prime;) is everything except the overlap - three regions on the Venn and three leaves on the tree.",
+   venn:["aOnly","bOnly","none"],tree:["bAnBc","bAcnB","bAcnBc"],treeAlt:null,treeXH:[],explain:"P((A&cap;B)&prime;) excludes only the intersection on the Venn and the A&cap;B leaf on the tree."},
+  {id:"pAcuBc",expr:"P(A&prime; &cup; B&prime;)",note:"P(A&prime;&cup;B&prime;) is the complement of A&cap;B - three regions on the Venn and three leaves on the tree.",
+   venn:["aOnly","bOnly","none"],tree:["bAnBc","bAcnB","bAcnBc"],treeAlt:null,treeXH:[],explain:"P(A&prime;&cup;B&prime;) excludes only A&cap;B on the Venn and the A&cap;B leaf on the tree."},
+];
+
+const VENN_TO_TREE={aOnly:["bAnBc"],inter:["bAnB"],bOnly:["bAcnB"],none:["bAcnBc"]};
+const TREE_TO_VENN={bA:["aOnly","inter"],bAc:["bOnly","none"],bBgA:["inter","aOnly"],bBcgA:["aOnly"],bBgAc:["bOnly"],bBcgAc:["none"],bAnB:["inter"],bAnBc:["aOnly"],bAcnB:["bOnly"],bAcnBc:["none"]};
+
+function shuffle(a){return[...a].sort(()=>Math.random()-0.5);}
+function norm(a){return[...a].sort().join(",");}
+function uniq(a){return[...new Set(a)];}
+
+let questions=shuffle(QUESTIONS).slice(0,5);
+let qi=0,results=[];
+let vSel=[],tSel=[],vStatus=null,tStatus=null,reported=false;
+let showHints=false,mode="ind";
+
+function computeXH(sel,pairs){
+  const s=new Set();
+  for(const[prim,impl] of(pairs||[])){
+    const pArr=[prim].flat();
+    if(pArr.every(b=>sel.includes(b))&&!impl.every(b=>sel.includes(b)))impl.forEach(b=>s.add(b));
+    if(impl.every(b=>sel.includes(b))&&!pArr.every(b=>sel.includes(b)))pArr.forEach(b=>s.add(b));
+  }
+  return s;
+}
+function sameTree(sel,q){
+  return norm(sel)===norm(q.tree)||(q.treeAlt&&norm(sel)===norm(q.treeAlt));
+}
+function getReactiveTree(vs){const s=new Set();vs.forEach(r=>(VENN_TO_TREE[r]||[]).forEach(l=>s.add(l)));return[...s];}
+function getReactiveVenn(ts){const s=new Set();ts.forEach(id=>(TREE_TO_VENN[id]||[]).forEach(r=>s.add(r)));return[...s];}
+
+// -- SVG helpers ---------------------------------------------------------------
+const VLX=128,VRX=242,VCY=118,VR=83;
+
+function renderVenn(display,status,q,clickable,isReactive){
+  const on=k=>status==="wrong"?q.venn.includes(k):display.includes(k);
+  const fill=k=>on(k)?(isReactive?"#c7d2fe":"#e0e7ff"):"#f8fafc";
+  const str=k=>on(k)?(isReactive?"#818cf8":"#6366f1"):"#94a3b8";
+  const sw=k=>on(k)?2.5:1.5;
+  const c=k=>clickable?`onclick="toggleVenn('${k}')" style="cursor:pointer"`:"";
+  return `<svg viewBox="0 0 375 238">
+    <defs><clipPath id="vc"><circle cx="${VLX}" cy="${VCY}" r="${VR}"/></clipPath></defs>
+    <rect x="4" y="4" width="367" height="230" rx="10" fill="${fill("none")}" stroke="${str("none")}" stroke-width="${sw("none")}" ${c("none")}/>
+    <circle cx="${VLX}" cy="${VCY}" r="${VR}" fill="${fill("aOnly")}" stroke="none" ${c("aOnly")}/>
+    <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="${fill("bOnly")}" stroke="none" ${c("bOnly")}/>
+    <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="${fill("inter")}" stroke="none" clip-path="url(#vc)" style="pointer-events:none"/>
+    <ellipse cx="${(VLX+VRX)/2}" cy="${VCY}" rx="33" ry="64" fill="transparent" ${c("inter")}/>
+    <circle cx="${VLX}" cy="${VCY}" r="${VR}" fill="none" stroke="#374151" stroke-width="2"/>
+    <circle cx="${VRX}" cy="${VCY}" r="${VR}" fill="none" stroke="#374151" stroke-width="2"/>
+    <text x="${VLX-13}" y="33" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2937">A</text>
+    <text x="${VRX+13}" y="33" text-anchor="middle" font-size="15" font-weight="600" fill="#1f2937">B</text>
+  </svg>`;
+}
+
+const TR=[20,138],TJ1={bA:[118,62],bAc:[118,214]};
+const TJ2={bBgA:[255,26],bBcgA:[255,98],bBgAc:[255,178],bBcgAc:[255,250]};
+const TLX2=374;
+const TL={bAnB:[TLX2,26],bAnBc:[TLX2,98],bAcnB:[TLX2,178],bAcnBc:[TLX2,250]};
+function tmid(a,b){return[(a[0]+b[0])/2,(a[1]+b[1])/2];}
+const TBB1={bA:tmid(TR,TJ1.bA),bAc:tmid(TR,TJ1.bAc)};
+const TBB2={bBgA:tmid(TJ1.bA,TJ2.bBgA),bBcgA:tmid(TJ1.bA,TJ2.bBcgA),bBgAc:tmid(TJ1.bAc,TJ2.bBgAc),bBcgAc:tmid(TJ1.bAc,TJ2.bBcgAc)};
+const TLINES=[[TR,TJ1.bA,"bA"],[TR,TJ1.bAc,"bAc"],[TJ1.bA,TJ2.bBgA,"bBgA"],[TJ1.bA,TJ2.bBcgA,"bBcgA"],[TJ1.bAc,TJ2.bBgAc,"bBgAc"],[TJ1.bAc,TJ2.bBcgAc,"bBcgAc"],[TJ2.bBgA,TL.bAnB,"bAnB"],[TJ2.bBcgA,TL.bAnBc,"bAnBc"],[TJ2.bBgAc,TL.bAcnB,"bAcnB"],[TJ2.bBcgAc,TL.bAcnBc,"bAcnBc"]];
+const BW=52,BH=20;
+
+function renderTree(display,userSel,status,q,clickable,isReactive){
+  const xh=computeXH(userSel,q.treeXH||[]);
+  const on=id=>status==="wrong"?q.tree.includes(id):display.includes(id);
+  const fill=id=>on(id)?(isReactive?"#c7d2fe":"#e0e7ff"):"#f8fafc";
+  const str=id=>on(id)?(isReactive?"#818cf8":"#6366f1"):"#94a3b8";
+  const sw=id=>on(id)?2.5:1.5;
+  const c=id=>clickable?`onclick="toggleTree('${id}')" style="cursor:pointer"`:"";
+  const lines=TLINES.map(([f,t,bid])=>`<line x1="${f[0]}" y1="${f[1]}" x2="${t[0]}" y2="${t[1]}" stroke="${on(bid)?(isReactive?"#818cf8":"#6366f1"):"#cbd5e1"}" stroke-width="${on(bid)?2.5:1.5}"/>`).join("");
+  const box=(id,cx,cy)=>`<g ${c(id)}><rect x="${cx-BW/2}" y="${cy-BH/2}" width="${BW}" height="${BH}" rx="5" fill="${fill(id)}" stroke="${str(id)}" stroke-width="${sw(id)}"/>${xh.has(id)?`<rect x="${cx-BW/2}" y="${cy-BH/2}" width="${BW}" height="${BH}" rx="5" fill="url(#txh)" style="pointer-events:none"/>`:""}</g>`;
+  const boxes=[...Object.entries(TBB1),...Object.entries(TBB2),...Object.entries(TL)].map(([id,[cx,cy]])=>box(id,cx,cy)).join("");
+  return `<svg viewBox="0 0 428 278">
+    <defs><pattern id="txh" patternUnits="userSpaceOnUse" width="7" height="7"><line x1="0" y1="0" x2="7" y2="7" stroke="#a5b4fc" stroke-width="1.5"/><line x1="7" y1="0" x2="0" y2="7" stroke="#a5b4fc" stroke-width="1.5"/></pattern></defs>
+    <circle cx="${TR[0]}" cy="${TR[1]}" r="4" fill="#64748b"/>
+    ${lines}${boxes}
+    <text x="${TJ1.bA[0]}" y="${TJ1.bA[1]-11}" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">A</text>
+    <text x="${TJ1.bAc[0]}" y="${TJ1.bAc[1]+19}" text-anchor="middle" font-size="12" font-weight="600" fill="#1e293b">A&#x2032;</text>
+    <text x="${TJ2.bBgA[0]+5}" y="${TJ2.bBgA[1]-9}" text-anchor="start" font-size="11" font-weight="600" fill="#1e293b">B</text>
+    <text x="${TJ2.bBcgA[0]+5}" y="${TJ2.bBcgA[1]+17}" text-anchor="start" font-size="11" font-weight="600" fill="#1e293b">B&#x2032;</text>
+    <text x="${TJ2.bBgAc[0]+5}" y="${TJ2.bBgAc[1]-9}" text-anchor="start" font-size="11" font-weight="600" fill="#1e293b">B</text>
+    <text x="${TJ2.bBcgAc[0]+5}" y="${TJ2.bBcgAc[1]+17}" text-anchor="start" font-size="11" font-weight="600" fill="#1e293b">B&#x2032;</text>
+  </svg>`;
+}
+
+// -- Main render ---------------------------------------------------------------
+function render(){
+  const app=document.getElementById("app");
+  if(qi>=questions.length){
+    const score=results.filter(Boolean).length;
+    app.innerHTML=`<div class="card done"><div class="em">${score===5?"&#x1F389;":score>=3?"&#x1F44D;":"&#x1F4DA;"}</div><h2>Round complete!</h2><p>You scored <strong>${score} out of ${questions.length}</strong></p><button class="pri" onclick="restart()">Try 5 more questions</button></div>`;
+    return;
+  }
+  const q=questions[qi];
+  const bothDone=vStatus&&tStatus;
+  const vDisplay=mode==="tv"&&!vStatus?getReactiveVenn(tSel):vSel;
+  const tDisplay=mode==="vt"&&!tStatus?getReactiveTree(vSel):tSel;
+  const vClickable=!vStatus&&mode!=="tv";
+  const tClickable=!tStatus&&mode!=="vt";
+  const vReactive=mode==="tv"&&!vStatus;
+  const tReactive=mode==="vt"&&!tStatus;
+
+  const modeNote={
+    vt:"As you shade the Venn diagram, the equivalent region highlights on the tree.",
+    ind:"Shade each diagram independently.",
+    tv:"As you shade the tree diagram, the equivalent region highlights on the Venn."
+  }[mode];
+
+  const guideText=mode==="ind"
+    ?(!vStatus?"Step 1 - shade the Venn diagram.":"Step 2 - shade the tree diagram.")
+    :mode==="vt"
+      ?(!vStatus?"Shade the Venn - the tree reacts. Then check both.":"Now check the tree diagram.")
+      :(!tStatus?"Shade the tree - the Venn reacts. Then check both.":"Now check the Venn diagram.");
+
+  app.innerHTML=`
+  <div class="header">
+    <span class="logo">P game</span>
+    <span class="badge">Q${qi+1} / ${questions.length}</span>
+  </div>
+  <div class="dots">${questions.map((_,i)=>`<div class="dot${i<results.length?(results[i]?" ok":" bad"):i===qi?" cur":""}"></div>`).join("")}</div>
+
+  <div class="card" style="margin-bottom:10px">
+    <div class="controls">
+      <span class="ctrl-label">Mode</span>
+      <div class="seg">
+        <button class="${mode==="vt"?"act":""}" onclick="setMode('vt')">Venn &rarr; Tree</button>
+        <button class="${mode==="ind"?"act":""}" onclick="setMode('ind')">Independent</button>
+        <button class="${mode==="tv"?"act":""}" onclick="setMode('tv')">Tree &rarr; Venn</button>
+      </div>
+      <button class="tbtn${showHints?" act":""}" onclick="toggleHints()">${showHints?"Hide hint":"Show hint"}</button>
+    </div>
+    ${mode!=="ind"?`<div style="margin-top:8px" class="mnote">&#x1F517; ${modeNote}</div>`:""}
+  </div>
+  ${showHints?`<div class="note" style="margin-bottom:8px">&#x1F4A1; ${q.note}</div>`:""}
+
+  <div class="card">
+    <div class="qtype">Select regions</div>
+    <h2>Which region(s) represent <em style="color:#7c3aed">${q.expr}</em>?</h2>
+
+    <div class="dual">
+      <div class="dcol">
+        <div class="dlabel">Venn diagram${vReactive?` <span class="rtag">reacting</span>`:""}${vStatus?`<span style="color:${vStatus==="correct"?"#16a34a":"#dc2626"};margin-left:5px">${vStatus==="correct"?"&#x2713;":"&#x2717;"}</span>`:""}</div>
+        ${renderVenn(vDisplay,vStatus,q,vClickable,vReactive)}
+        ${!vStatus?`<div class="row">
+          ${mode==="tv"
+            ?`<button class="sm" ${tSel.length===0?"disabled":""} onclick="checkVennReactive()">Check Venn</button>`
+            :`<button class="sm" ${vSel.length===0?"disabled":""} onclick="checkVenn()">Check Venn</button>`}
+        </div>`:""}
+        ${vStatus==="wrong"?`<div class="row"><button class="sm" onclick="showVenn()">Show answer</button></div>`:""}
+        ${vStatus?`<div class="fb ${vStatus==="correct"?"ok":"bad"}">${vStatus==="correct"?"Correct!":q.explain}</div>`:""}
+      </div>
+
+      <div class="dcol">
+        <div class="dlabel">Tree diagram${tReactive?` <span class="rtag">reacting</span>`:""}${tStatus?`<span style="color:${tStatus==="correct"?"#16a34a":"#dc2626"};margin-left:5px">${tStatus==="correct"?"&#x2713;":"&#x2717;"}</span>`:""}</div>
+        ${renderTree(tDisplay,tSel,tStatus,q,tClickable,tReactive)}
+        ${!tStatus?`<div class="row">
+          ${mode==="vt"
+            ?`<button class="sm" ${vSel.length===0?"disabled":""} onclick="checkTreeReactive()">Check tree</button>`
+            :`<button class="sm" ${tSel.length===0?"disabled":""} onclick="checkTree()">Check tree</button>`}
+        </div>`:""}
+        ${tStatus==="wrong"?`<div class="row"><button class="sm" onclick="showTree()">Show answer</button></div>`:""}
+        ${tStatus?`<div class="fb ${tStatus==="correct"?"ok":"bad"}">${tStatus==="correct"?"Correct!":q.explain}</div>`:""}
+      </div>
+    </div>
+
+    ${!bothDone?`<p class="guide">${guideText}</p>`:""}
+    ${bothDone?`<div class="actions"><button class="pri" onclick="nextQ()">${qi+1>=questions.length?"See results":"Next question"}</button></div>`:""}
+  </div>`;
+}
+
+// -- Handlers ------------------------------------------------------------------
+function toggleVenn(k){if(vStatus)return;vSel=vSel.includes(k)?vSel.filter(x=>x!==k):[...vSel,k];render();}
+function toggleTree(id){if(tStatus)return;tSel=tSel.includes(id)?tSel.filter(x=>x!==id):[...tSel,id];render();}
+function checkVenn(){const q=questions[qi];vStatus=norm(vSel)===norm(q.venn)?"correct":"wrong";maybeReport();render();}
+function checkTree(){const q=questions[qi];tStatus=sameTree(tSel,q)?"correct":"wrong";maybeReport();render();}
+function checkVennReactive(){const q=questions[qi];const d=getReactiveVenn(tSel);vSel=d;vStatus=norm(d)===norm(q.venn)?"correct":"wrong";maybeReport();render();}
+function checkTreeReactive(){const q=questions[qi];const d=getReactiveTree(vSel);tSel=d;tStatus=sameTree(d,q)?"correct":"wrong";maybeReport();render();}
+function showVenn(){const q=questions[qi];vSel=[...q.venn];vStatus="wrong";maybeReport();render();}
+function showTree(){const q=questions[qi];tSel=[...q.tree];tStatus="wrong";maybeReport();render();}
+function maybeReport(){if(vStatus&&tStatus&&!reported){reported=true;results.push(vStatus==="correct"&&tStatus==="correct");}}
+function nextQ(){qi++;vSel=[];tSel=[];vStatus=null;tStatus=null;reported=false;render();}
+function restart(){questions=shuffle(QUESTIONS).slice(0,5);qi=0;results=[];vSel=[];tSel=[];vStatus=null;tStatus=null;reported=false;render();}
+function setMode(m){mode=m;vSel=[];tSel=[];render();}
+function toggleHints(){showHints=!showHints;render();}
+
+render();
+</script>
+</body>
+</html>

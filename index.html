@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Probability Game</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,sans-serif;background:#f8fafc;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── Header ── */
+.site-header{background:#1e1b4b;padding:14px 20px;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.site-title{font-family:Georgia,serif;font-size:20px;color:#fff;letter-spacing:-0.02em}
+.site-subtitle{font-size:12px;color:#a5b4fc;margin-top:1px}
+
+/* ── Nav tabs ── */
+.nav{display:flex;background:#fff;border-bottom:2px solid #e5e7eb;flex-shrink:0;overflow-x:auto}
+.nav-btn{flex:1;min-width:120px;padding:12px 8px;font-size:13px;font-weight:600;color:#6b7280;background:transparent;border:none;border-bottom:3px solid transparent;cursor:pointer;transition:all .2s;text-align:center;line-height:1.3;white-space:nowrap}
+.nav-btn:hover{color:#4c1d95;background:#faf5ff}
+.nav-btn.act{color:#4c1d95;border-bottom-color:#7c3aed;background:#faf5ff}
+.nav-btn .part-num{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:#9ca3af;margin-bottom:2px}
+.nav-btn.act .part-num{color:#7c3aed}
+
+/* ── Description strip ── */
+.desc{background:#ede9fe;border-bottom:1px solid #ddd6fe;padding:8px 16px;font-size:12px;color:#4c1d95;flex-shrink:0;line-height:1.5}
+.desc strong{font-weight:700}
+
+/* ── iframe container ── */
+.frame-wrap{flex:1;position:relative;min-height:0}
+iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;display:block}
+
+/* ── Loading overlay ── */
+.loading{position:absolute;top:0;left:0;width:100%;height:100%;background:#f8fafc;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:10;transition:opacity .3s}
+.loading.hidden{opacity:0;pointer-events:none}
+.spinner{width:36px;height:36px;border:3px solid #ddd6fe;border-top-color:#7c3aed;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading p{font-size:13px;color:#6b7280}
+
+/* ── Mobile note ── */
+@media(max-width:500px){
+  .nav-btn{font-size:11px;padding:10px 4px;min-width:80px}
+  .site-title{font-size:16px}
+}
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div>
+    <div class="site-title">&#x1D40F; Probability Game</div>
+    <div class="site-subtitle">Venn diagrams &amp; tree diagrams</div>
+  </div>
+</header>
+
+<nav class="nav" id="nav">
+  <button class="nav-btn act" onclick="switchTo(0)" id="tab0">
+    <span class="part-num">Part 1</span>
+    Select regions
+  </button>
+  <button class="nav-btn" onclick="switchTo(1)" id="tab1">
+    <span class="part-num">Part 2a</span>
+    Calculate &mdash; Venn
+  </button>
+  <button class="nav-btn" onclick="switchTo(2)" id="tab2">
+    <span class="part-num">Part 2b</span>
+    Calculate &mdash; Tree
+  </button>
+  <button class="nav-btn" onclick="switchTo(3)" id="tab3">
+    <span class="part-num">Part 3</span>
+    In context
+  </button>
+</nav>
+
+<div class="desc" id="desc"></div>
+
+<div class="frame-wrap">
+  <div class="loading" id="loading">
+    <div class="spinner"></div>
+    <p>Loading&hellip;</p>
+  </div>
+  <iframe id="frame" title="Probability game"></iframe>
+</div>
+
+<script>
+const PARTS = [
+  {
+    file: 'probability-part1.html',
+    desc: '<strong>Part 1 &mdash; Select regions:</strong> Identify which regions of the Venn and tree diagram represent a given probability expression. Use the mode switch to see how the diagrams relate to each other.',
+  },
+  {
+    file: 'probability-part2-venn.html',
+    desc: '<strong>Part 2a &mdash; Calculate using a Venn diagram:</strong> Given three of P(A), P(B), P(A&cap;B) and P(A&cup;B), find the fourth. Use the editable Venn diagram as your working space.',
+  },
+  {
+    file: 'probability-part2-tree.html',
+    desc: '<strong>Part 2b &mdash; Calculate using a tree diagram:</strong> Fill in a partially completed tree diagram by multiplying along branches, then use it to calculate a probability.',
+  },
+  {
+    file: 'probability-part3.html',
+    desc: '<strong>Part 3 &mdash; In context:</strong> Read a real-world scenario and find the required probability. Toggle a Venn or tree diagram to help with your working.',
+  },
+];
+
+let current = 0;
+
+function switchTo(i) {
+  current = i;
+  // Update tabs
+  PARTS.forEach((_,j) => {
+    document.getElementById('tab'+j).classList.toggle('act', j===i);
+  });
+  // Update description
+  document.getElementById('desc').innerHTML = PARTS[i].desc;
+  // Show loading
+  const loading = document.getElementById('loading');
+  loading.classList.remove('hidden');
+  // Load iframe
+  const frame = document.getElementById('frame');
+  frame.src = '';
+  setTimeout(() => {
+    frame.src = PARTS[i].file;
+  }, 50);
+}
+
+// Hide loading once iframe loads
+document.getElementById('frame').addEventListener('load', () => {
+  document.getElementById('loading').classList.add('hidden');
+});
+
+// Initialise
+switchTo(0);
+</script>
+</body>
+</html>
