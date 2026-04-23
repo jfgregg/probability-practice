@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:system-ui,sans-serif;background:#f0fdf4;padding:8px;min-height:100vh}
+body{font-family:system-ui,sans-serif;background:#f0fdf4;padding:12px;min-height:100vh;max-width:640px;margin:0 auto}
 .header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
 .logo{font-family:Georgia,serif;font-size:18px;color:#14532d}
 .badge{background:#16a34a;color:#fff;border-radius:99px;padding:2px 12px;font-size:12px}
@@ -250,7 +250,7 @@ function renderTree(q,tVals,filled){
 
   const boxes=[...Object.entries(TBB1),...Object.entries(TBB2),...Object.entries(TL)].map(([id,[cx,cy]])=>box(id,cx,cy)).join('');
 
-  return`<svg viewBox="0 0 470 312" style="width:100%;display:block;overflow:visible">
+  return`<svg viewBox="0 0 470 312" style="width:100%;max-width:420px;display:block;margin:0 auto;overflow:visible">
     <circle cx="${TR[0]}" cy="${TR[1]}" r="4" fill="#64748b"/>
     ${lines}${boxes}
     <text x="${TJ1.bA[0]}" y="${TJ1.bA[1]-13}" text-anchor="middle" font-size="12" font-weight="700" fill="#1e293b">${lbl.A}</text>
@@ -289,7 +289,7 @@ function renderVenn(q,vVals,filled){
   const noneVal=filled?correct.none:(vVals.none||'');
 
   return`<div class="venn-wrap">
-    <svg viewBox="0 0 400 258" style="width:100%;display:block;overflow:visible">
+    <svg viewBox="0 0 400 258" style="width:100%;max-width:420px;display:block;margin:0 auto;overflow:visible">
       <defs><clipPath id="vca3"><circle cx="${VLX}" cy="${VCY}" r="${VR}"/></clipPath></defs>
       <rect x="6" y="6" width="388" height="246" rx="12" fill="#f0fdf4" stroke="#6ee7b7" stroke-width="1.5"/>
       <circle cx="${VLX}" cy="${VCY}" r="${VR}" fill="#d1fae5" stroke="none"/>
