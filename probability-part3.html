@@ -106,28 +106,37 @@ const SCENARIOS = [
 
   // ── S2: School languages (Venn-type) ─────────────────────────────────────
   function(){
-    const total=pick([100,120,150,200]);
-    const spanish=Math.round(total*(0.5+Math.random()*0.25));
-    const french=Math.round(total*(0.4+Math.random()*0.25));
-    const minBoth=Math.max(1,spanish+french-total);
-    const maxBoth=Math.min(spanish,french)-1;
-    if(maxBoth<=minBoth){return SCENARIOS[1]();}
-    const both=minBoth+Math.floor(Math.random()*(maxBoth-minBoth));
-    const aOnly=spanish-both, bOnly=french-both, none=0;
-    // Store exact decimal to 4dp to avoid rounding errors in check
-    const findAns=r4(both/total);
-    const school=pick(['school','college','sixth form']);
-    return{
-      storyHTML:`In a <strong>${school} of ${total} students</strong>, <strong>${spanish} study Spanish</strong> and <strong>${french} study French</strong>. Every student studies at least one of the two languages.`,
-      findExpr:'P(studies both)',
-      findAns:findAns,
-      hint:`Since every student studies at least one language, P(Spanish &cup; French) = 1. Use P(both) = P(Spanish) + P(French) &minus; P(Spanish &cup; French) = ${spanish}/${total} + ${french}/${total} &minus; 1.`,
-      vennData:{aOnly:aOnly,inter:both,bOnly:bOnly,none:0},
-      vennLabels:{A:'Spanish',B:'French'},
-      isFrequency:true, total:total,
-      treeData:null,
-      diagType:'venn',
-    };
+    // Since every student studies at least one language, none=0
+    // therefore both = spanish + french - total (exactly, no random choice)
+    for(let tries=0;tries<200;tries++){
+      const total=pick([100,120,150,200]);
+      const spanish=Math.round(total*(0.5+Math.random()*0.25));
+      const french=Math.round(total*(0.4+Math.random()*0.25));
+      const both=spanish+french-total; // exact: derived from inclusion-exclusion
+      const aOnly=spanish-both;
+      const bOnly=french-both;
+      // Validate: all counts positive
+      if(both<=0||aOnly<=0||bOnly<=0) continue;
+      const findAns=r4(both/total);
+      const school=pick(['school','college','sixth form']);
+      return{
+        storyHTML:`In a <strong>${school} of ${total} students</strong>, <strong>${spanish} study Spanish</strong> and <strong>${french} study French</strong>. Every student studies at least one of the two languages.`,
+        findExpr:'P(studies both)',
+        findAns:findAns,
+        hint:`Since every student studies at least one language, P(Spanish &cup; French) = 1. So P(both) = P(Spanish) + P(French) &minus; 1 = ${spanish}/${total} + ${french}/${total} &minus; 1.`,
+        vennData:{aOnly:aOnly,inter:both,bOnly:bOnly,none:0},
+        vennLabels:{A:'Spanish',B:'French'},
+        isFrequency:true, total:total,
+        treeData:null,
+        diagType:'venn',
+      };
+    }
+    // Hard fallback
+    return{storyHTML:`In a <strong>school of 100 students</strong>, <strong>65 study Spanish</strong> and <strong>55 study French</strong>. Every student studies at least one of the two languages.`,
+      findExpr:'P(studies both)',findAns:0.2,
+      hint:`P(both) = P(Spanish) + P(French) &minus; 1 = 65/100 + 55/100 &minus; 1.`,
+      vennData:{aOnly:45,inter:20,bOnly:35,none:0},
+      vennLabels:{A:'Spanish',B:'French'},isFrequency:true,total:100,treeData:null,diagType:'venn'};
   },
 
   // ── S3: Medical test (tree-type) ─────────────────────────────────────────
